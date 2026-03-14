@@ -174,9 +174,10 @@ fun Context.openDeviceSettings() {
 
 fun Context.openWebBrowser() {
     try {
-        val defaultBrowserPackage = getDefaultBrowserPackageName()
-        val intent = Intent(Intent.ACTION_VIEW, "https://".toUri()).apply {
+        val intent = Intent(Intent.ACTION_VIEW, "https://www.google.com".toUri()).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addCategory(Intent.CATEGORY_BROWSABLE)
+            val defaultBrowserPackage = getDefaultBrowserPackageName()
             if (defaultBrowserPackage != null) setPackage(defaultBrowserPackage)
         }
         startActivity(intent)
@@ -188,7 +189,9 @@ fun Context.openWebBrowser() {
 
 
 fun Context.getDefaultBrowserPackageName(): String? {
-    val intent = Intent(Intent.ACTION_VIEW, "https://".toUri())
+    val intent = Intent(Intent.ACTION_VIEW, "https://www.google.com".toUri()).apply {
+        addCategory(Intent.CATEGORY_BROWSABLE)
+    }
     val resolveInfo = packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
     return resolveInfo?.activityInfo?.packageName
 }
