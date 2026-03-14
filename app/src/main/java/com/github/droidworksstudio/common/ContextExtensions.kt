@@ -175,17 +175,11 @@ fun Context.openDeviceSettings() {
 fun Context.openWebBrowser() {
     try {
         val defaultBrowserPackage = getDefaultBrowserPackageName()
-        if (defaultBrowserPackage != null) {
-            val launchIntent = packageManager.getLaunchIntentForPackage(defaultBrowserPackage)
-            if (launchIntent != null) {
-                launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                startActivity(launchIntent)
-            } else {
-                AppLogger.d("openDefaultBrowserApp", "No launch intent for package $defaultBrowserPackage")
-            }
-        } else {
-            AppLogger.d("openDefaultBrowserApp", "No default browser package found")
+        val intent = Intent(Intent.ACTION_VIEW, "https://".toUri()).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (defaultBrowserPackage != null) setPackage(defaultBrowserPackage)
         }
+        startActivity(intent)
     } catch (e: Exception) {
         AppLogger.d("openDefaultBrowserApp", e.toString())
     }
