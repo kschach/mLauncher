@@ -454,4 +454,10 @@
         <item>Work</item>
     </string-array>
 
+    <string name="add_web_shortcut">Add web shortcut</string>
+    <string name="web_shortcut_name_hint">Name</string>
+    <string name="web_shortcut_url_hint">URL (e.g. https://example.com)</string>
+    <string name="add">Add</string>
+    <string name="can_not_delete_shortcut">Cannot delete browser shortcuts from here</string>
+
 </resources>

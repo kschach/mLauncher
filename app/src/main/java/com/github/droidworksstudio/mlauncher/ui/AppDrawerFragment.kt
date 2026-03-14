@@ -22,8 +22,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AnimationUtils
 import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.annotation.RequiresApi
 import androidx.appcompat.widget.SearchView
 import androidx.core.net.toUri
@@ -46,6 +49,7 @@ import com.github.droidworksstudio.mlauncher.MainViewModel
 import com.github.droidworksstudio.mlauncher.R
 import com.github.droidworksstudio.mlauncher.data.AppCategory
 import com.github.droidworksstudio.mlauncher.data.AppListItem
+import com.github.droidworksstudio.mlauncher.data.AppType
 import com.github.droidworksstudio.mlauncher.data.Constants
 import com.github.droidworksstudio.mlauncher.data.Constants.AppDrawerFlag
 import com.github.droidworksstudio.mlauncher.data.ContactListItem
@@ -412,6 +416,15 @@ class AppDrawerFragment : Fragment() {
                             binding.menuView.displayedChild = 0
                         }
                     }
+                    binding.addWebShortcut.apply {
+                        isVisible = true
+                        setOnClickListener {
+                            val viewModel = activity?.run {
+                                ViewModelProvider(this)[MainViewModel::class.java]
+                            }
+                            showAddWebShortcutDialog(viewModel)
+                        }
+                    }
                 }
 
                 AppDrawerFlag.HiddenApps -> {
@@ -763,15 +776,33 @@ class AppDrawerFragment : Fragment() {
     }
 
     private fun appDeleteListener(): (appListItem: AppListItem) -> Unit = { appModel ->
-        if (requireContext().isSystemApp(appModel.activityPackage))
-            showShortToast(getLocalizedString(R.string.can_not_delete_system_apps))
-        else {
-            val appPackage = appModel.activityPackage
-            val intent = Intent(Intent.ACTION_DELETE)
-            intent.data = "package:$appPackage".toUri()
-            requireContext().startActivity(intent)
+        when (appModel.appType) {
+            AppType.URL_SHORTCUT -> {
+                // Remove manual URL shortcut from prefs
+                val encoded = "${appModel.activityLabel}||${appModel.pwaUrl}"
+                val prefs = Prefs(requireContext())
+                val updated = prefs.pwaUrlShortcuts.toMutableSet().also { it.remove(encoded) }
+                prefs.pwaUrlShortcuts = updated
+                val viewModel = activity?.run {
+                    androidx.lifecycle.ViewModelProvider(this)[MainViewModel::class.java]
+                }
+                viewModel?.getAppList()
+            }
+            AppType.SHORTCUT -> {
+                // Chrome pinned shortcuts can't be deleted from here
+                showShortToast(getLocalizedString(R.string.can_not_delete_system_apps))
+            }
+            else -> {
+                if (requireContext().isSystemApp(appModel.activityPackage))
+                    showShortToast(getLocalizedString(R.string.can_not_delete_system_apps))
+                else {
+                    val appPackage = appModel.activityPackage
+                    val intent = Intent(Intent.ACTION_DELETE)
+                    intent.data = "package:$appPackage".toUri()
+                    requireContext().startActivity(intent)
+                }
+            }
         }
-
     }
 
     private fun appRenameListener(): (appPackage: String, appAlias: String) -> Unit = { appPackage, appAlias ->
@@ -821,6 +852,49 @@ class AppDrawerFragment : Fragment() {
             appModel.activityPackage
         )
         findNavController().popBackStack(R.id.mainFragment, false)
+    }
+
+    private fun showAddWebShortcutDialog(viewModel: MainViewModel?) {
+        val context = requireContext()
+
+        val nameInput = EditText(context).apply {
+            hint = getLocalizedString(R.string.web_shortcut_name_hint)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PERSON_NAME
+        }
+        val urlInput = EditText(context).apply {
+            hint = getLocalizedString(R.string.web_shortcut_url_hint)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+        }
+
+        val layout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            val padding = (16 * resources.displayMetrics.density).toInt()
+            setPadding(padding, padding, padding, padding)
+            addView(nameInput)
+            addView(urlInput)
+        }
+
+        AlertDialog.Builder(context)
+            .setTitle(getLocalizedString(R.string.add_web_shortcut))
+            .setView(layout)
+            .setPositiveButton(getLocalizedString(R.string.add)) { _, _ ->
+                val name = nameInput.text.toString().trim()
+                var url = urlInput.text.toString().trim()
+                if (name.isEmpty() || url.isEmpty()) {
+                    showShortToast(getLocalizedString(R.string.web_shortcut_url_hint))
+                    return@setPositiveButton
+                }
+                if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                    url = "https://$url"
+                }
+                val encoded = "$name||$url"
+                val prefs = Prefs(context)
+                val updated = prefs.pwaUrlShortcuts.toMutableSet().also { it.add(encoded) }
+                prefs.pwaUrlShortcuts = updated
+                viewModel?.getAppList()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     // Handles click on a contact item

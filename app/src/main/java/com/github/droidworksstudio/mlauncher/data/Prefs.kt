@@ -89,6 +89,7 @@ private const val DOUBLE_TAP_ACTION = "DOUBLE_TAP_ACTION"
 private const val HIDDEN_APPS = "HIDDEN_APPS"
 private const val LOCKED_APPS = "LOCKED_APPS"
 private const val PINNED_APPS = "PINNED_APPS"
+private const val PWA_URL_SHORTCUTS = "PWA_URL_SHORTCUTS"
 private const val HIDDEN_CONTACTS = "HIDDEN_CONTACTS"
 private const val PINNED_CONTACTS = "PINNED_CONTACTS"
 private const val SEARCH_ENGINE = "SEARCH_ENGINE"
@@ -728,6 +729,12 @@ class Prefs(val context: Context) {
         get() = prefsNormal.getStringSet(PINNED_APPS, emptySet()) as Set<String>
         set(value) = prefsNormal.edit { putStringSet(PINNED_APPS, value) }
 
+    /**
+     * Stores manual PWA/web URL shortcuts as "label||url" encoded strings.
+     */
+    var pwaUrlShortcuts: MutableSet<String>
+        get() = prefsNormal.getStringSet(PWA_URL_SHORTCUTS, mutableSetOf()) as MutableSet<String>
+        set(value) = prefsNormal.edit { putStringSet(PWA_URL_SHORTCUTS, value) }
 
     var hiddenContacts: MutableSet<String>
         get() = prefsNormal.getStringSet(HIDDEN_CONTACTS, mutableSetOf()) as MutableSet<String>

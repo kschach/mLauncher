@@ -25,6 +25,7 @@ import com.github.droidworksstudio.common.hideKeyboard
 import com.github.droidworksstudio.common.showShortToast
 import com.github.droidworksstudio.mlauncher.data.AppCategory
 import com.github.droidworksstudio.mlauncher.data.AppListItem
+import com.github.droidworksstudio.mlauncher.data.AppType
 import com.github.droidworksstudio.mlauncher.data.Constants
 import com.github.droidworksstudio.mlauncher.data.Constants.AppDrawerFlag
 import com.github.droidworksstudio.mlauncher.data.ContactCategory
@@ -163,7 +164,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val packageName = appListItem.activityPackage
         val currentLockedApps = prefs.lockedApps
 
-        logActivitiesFromPackage(appContext, packageName)
+        if (appListItem.appType != AppType.URL_SHORTCUT) {
+            logActivitiesFromPackage(appContext, packageName)
+        }
 
         if (currentLockedApps.contains(packageName)) {
 
@@ -172,7 +175,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     if (fragment.isAdded) {
                         fragment.hideKeyboard()
                     }
-                    launchUnlockedApp(appListItem)
+                    dispatchAppLaunch(appListItem)
                 }
 
                 override fun onAuthenticationFailed() {
@@ -199,7 +202,41 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             })
         } else {
-            launchUnlockedApp(appListItem)
+            dispatchAppLaunch(appListItem)
+        }
+    }
+
+    private fun dispatchAppLaunch(appListItem: AppListItem) {
+        when (appListItem.appType) {
+            AppType.REGULAR, AppType.WEBAPK -> launchUnlockedApp(appListItem)
+            AppType.SHORTCUT -> launchPinnedShortcut(appListItem)
+            AppType.URL_SHORTCUT -> launchUrlShortcut(appListItem)
+        }
+    }
+
+    private fun launchPinnedShortcut(appListItem: AppListItem) {
+        val shortcutId = appListItem.shortcutId ?: return
+        val launcher = appContext.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+        try {
+            launcher.startShortcut(appListItem.activityPackage, shortcutId, null, null, appListItem.user)
+            CrashHandler.logUserAction("PWA shortcut launched: ${appListItem.activityLabel}")
+        } catch (e: Exception) {
+            AppLogger.e("LaunchShortcut", "Failed to launch shortcut $shortcutId: ${e.message}", e)
+            appContext.showShortToast("Unable to launch shortcut")
+        }
+    }
+
+    private fun launchUrlShortcut(appListItem: AppListItem) {
+        val url = appListItem.pwaUrl ?: return
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, url.toUri()).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            appContext.startActivity(intent)
+            CrashHandler.logUserAction("PWA URL shortcut launched: ${appListItem.activityLabel}")
+        } catch (e: Exception) {
+            AppLogger.e("LaunchUrlShortcut", "Failed to launch URL $url: ${e.message}", e)
+            appContext.showShortToast("Unable to open link")
         }
     }
 
@@ -456,7 +493,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         else -> AppCategory.REGULAR
                     }
 
-                    AppLogger.d("AppListDebug", "📱 Adding app: $label ($packageName/$className) from profile: $profile|$profileType")
+                    val detectedAppType = when {
+                        packageName.startsWith("org.chromium.webapk.") -> AppType.WEBAPK
+                        else -> AppType.REGULAR
+                    }
+
+                    AppLogger.d("AppListDebug", "📱 Adding app: $label ($packageName/$className) type=$detectedAppType from profile: $profile|$profileType")
 
                     fullList.add(
                         AppListItem(
@@ -468,12 +510,88 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             customLabel = alias,
                             customTag = tag,
                             category = category,
-                            isHeader = false
+                            isHeader = false,
+                            appType = detectedAppType
                         )
                     )
 
                     AppLogger.d("AppListDebug", "✅ Added app: $label ($packageName/$className) from profile: $profile|$profileType")
                     seenAppKeys.add(appKey)
+                }
+            }
+
+            // Add Chrome pinned shortcuts (PWAs added via "Add to Home Screen")
+            if (includeRegularApps) {
+                val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+                val browserPackages = listOf(
+                    "com.android.chrome",
+                    "com.chrome.beta",
+                    "com.chrome.dev",
+                    "com.chrome.canary",
+                    "org.chromium.chrome"
+                )
+                val shortcutQuery = LauncherApps.ShortcutQuery().apply {
+                    setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED)
+                }
+                for (profile in userManager.userProfiles) {
+                    for (pkg in browserPackages) {
+                        shortcutQuery.setPackage(pkg)
+                        val shortcuts = try {
+                            launcherApps.getShortcuts(shortcutQuery, profile)
+                        } catch (_: Exception) {
+                            null
+                        } ?: continue
+                        for (shortcut in shortcuts) {
+                            val shortcutLabel = shortcut.shortLabel?.toString()
+                                ?: shortcut.longLabel?.toString()
+                                ?: shortcut.id
+                            val shortcutKey = "${pkg}|${shortcut.id}|${profile.hashCode()}"
+                            if (seenAppKeys.contains(shortcutKey)) continue
+                            AppLogger.d("AppListDebug", "🌐 Adding Chrome shortcut: $shortcutLabel from $pkg")
+                            fullList.add(
+                                AppListItem(
+                                    activityLabel = shortcutLabel,
+                                    activityPackage = pkg,
+                                    activityClass = shortcut.id,
+                                    user = profile,
+                                    profileType = "SYSTEM",
+                                    customLabel = prefs.getAppAlias(shortcutKey).ifEmpty { shortcutLabel },
+                                    customTag = prefs.getAppTag(shortcutKey, profile),
+                                    category = AppCategory.REGULAR,
+                                    isHeader = false,
+                                    appType = AppType.SHORTCUT,
+                                    shortcutId = shortcut.id
+                                )
+                            )
+                            seenAppKeys.add(shortcutKey)
+                        }
+                    }
+                }
+            }
+
+            // Add manual PWA URL shortcuts from prefs
+            if (includeRegularApps) {
+                for (encoded in prefs.pwaUrlShortcuts) {
+                    val parts = encoded.split("||", limit = 2)
+                    if (parts.size != 2) continue
+                    val (label, url) = parts
+                    if (label.isBlank() || url.isBlank()) continue
+                    AppLogger.d("AppListDebug", "🔗 Adding URL shortcut: $label -> $url")
+                    fullList.add(
+                        AppListItem(
+                            activityLabel = label,
+                            activityPackage = "pwa.url.shortcut",
+                            activityClass = url,
+                            user = userManager.userProfiles[0],
+                            profileType = "SYSTEM",
+                            customLabel = label,
+                            customTag = "",
+                            category = AppCategory.REGULAR,
+                            isHeader = false,
+                            appType = AppType.URL_SHORTCUT,
+                            pwaUrl = url
+                        )
+                    )
                 }
             }
 

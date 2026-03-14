@@ -40,6 +40,7 @@ import com.github.droidworksstudio.common.showKeyboard
 import com.github.droidworksstudio.fuzzywuzzy.FuzzyFinder
 import com.github.droidworksstudio.mlauncher.R
 import com.github.droidworksstudio.mlauncher.data.AppListItem
+import com.github.droidworksstudio.mlauncher.data.AppType
 import com.github.droidworksstudio.mlauncher.data.Constants
 import com.github.droidworksstudio.mlauncher.data.Constants.AppDrawerFlag
 import com.github.droidworksstudio.mlauncher.data.Prefs
@@ -341,6 +342,11 @@ class AppDrawerAdapter(
             setBounds(0, 0, px, px)
         }
 
+        private val pwaIcon = AppCompatResources.getDrawable(context, R.drawable.ic_browser)?.apply {
+            val px = dp2px(context.resources, prefs.appSize)
+            setBounds(0, 0, px, px)
+        }
+
         @SuppressLint("RtlHardcoded", "NewApi")
         fun bind(
             flag: AppDrawerFlag,
@@ -508,6 +514,10 @@ class AppDrawerAdapter(
             // Use a placeholder icon
             val placeholderIcon = AppCompatResources.getDrawable(context, R.drawable.ic_default_app)
 
+            val isPwaType = appListItem.appType == AppType.WEBAPK
+                    || appListItem.appType == AppType.SHORTCUT
+                    || appListItem.appType == AppType.URL_SHORTCUT
+
             if (appListItem.isHeader) {
                 val icon = when {
                     isPrivateSpace -> privateProfileIcon
@@ -520,6 +530,21 @@ class AppDrawerAdapter(
                         LEFT -> appTitle.setCompoundDrawables(null, null, icon, null)
                         RIGHT -> appTitle.setCompoundDrawables(icon, null, null, null)
                         else -> appTitle.setCompoundDrawables(icon, null, null, null)
+                    }
+                    appTitle.compoundDrawablePadding = 20
+                }
+            } else if (isPwaType) {
+                // Show browser/web badge for PWA entries; skip app icon pack loading
+                val badge = when {
+                    isPrivateSpace -> privateProfileIcon
+                    isWorkProfile -> workProfileIcon
+                    else -> pwaIcon
+                }
+                if (badge != null) {
+                    when (appLabelGravity) {
+                        LEFT -> appTitle.setCompoundDrawables(badge, null, null, null)
+                        RIGHT -> appTitle.setCompoundDrawables(null, null, badge, null)
+                        else -> appTitle.setCompoundDrawables(null, null, null, null)
                     }
                     appTitle.compoundDrawablePadding = 20
                 }
@@ -595,7 +620,8 @@ class AppDrawerAdapter(
             }
 
             appInfo.apply {
-                isVisible = contextMenuFlags[5]
+                // Shortcuts/URL shortcuts have no system app info page
+                isVisible = contextMenuFlags[5] && !isPwaType
                 setOnClickListener {
                     appInfoListener(appListItem)
                 }

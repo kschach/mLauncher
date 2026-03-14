@@ -41,7 +41,10 @@ data class AppListItem(
     var customLabel: String,
     var customTag: String,
     var category: AppCategory = AppCategory.REGULAR,
-    val isHeader: Boolean = false
+    val isHeader: Boolean = false,
+    val appType: AppType = AppType.REGULAR,
+    val shortcutId: String? = null,
+    val pwaUrl: String? = null
 ) : Comparable<AppListItem> {
 
     val label = customLabel.ifEmpty { activityLabel }
@@ -56,4 +59,8 @@ data class AppListItem(
 
 enum class AppCategory {
     RECENT, PINNED, REGULAR
+}
+
+enum class AppType {
+    REGULAR, WEBAPK, SHORTCUT, URL_SHORTCUT
 }
