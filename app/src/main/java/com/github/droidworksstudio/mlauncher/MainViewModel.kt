@@ -230,7 +230,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val url = appListItem.pwaUrl ?: return
         try {
             val intent = Intent(Intent.ACTION_VIEW, url.toUri()).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
             appContext.startActivity(intent)
             CrashHandler.logUserAction("PWA URL shortcut launched: ${appListItem.activityLabel}")
