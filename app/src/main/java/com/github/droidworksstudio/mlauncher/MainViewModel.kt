@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Process
 import android.os.UserHandle
 import android.os.UserManager
+import android.provider.Browser
 import android.provider.ContactsContract
 import androidx.biometric.BiometricPrompt
 import androidx.core.net.toUri
@@ -231,6 +232,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         try {
             val intent = Intent(Intent.ACTION_VIEW, url.toUri()).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                putExtra(Browser.EXTRA_APPLICATION_ID, url)
             }
             appContext.startActivity(intent)
             CrashHandler.logUserAction("PWA URL shortcut launched: ${appListItem.activityLabel}")
