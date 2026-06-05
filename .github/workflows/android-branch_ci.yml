@@ -51,6 +51,13 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mLauncher-${{ github.ref_name }}-signed
+          path: app/build/outputs/apk/prod/release/*.apk
+          retention-days: 7
+
       - name: Secure keystore cleanup
         if: always()
         shell: bash
