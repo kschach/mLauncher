@@ -657,6 +657,10 @@ class AppDrawerFragment : BaseFragment() {
         contactAdapter: ContactDrawerAdapter,
         profileFilter: String? = null // "PRIVATE", "WORK", "SYSTEM", "USER", or null for all
     ) {
+        if (flag == AppDrawerFlag.LaunchApp) {
+            viewModel.getAppList()
+        }
+
         fun <T> observeList(
             liveData: LiveData<List<T>?>,
             currentList: List<T>,
