@@ -640,6 +640,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // 1. Perform the sort using Alias priority
         val sortedApps = allApps.sortedWith(
             compareByDescending<AppListItem> { it.category == AppCategory.PINNED }
+                .thenByDescending { it.category == AppCategory.RECENT }
                 .thenBy { item ->
                     val alias = prefs.getAppAlias(item.activityPackage)
                     val displayName = alias.takeIf { it.isNotBlank() } ?: item.activityLabel
