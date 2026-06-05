@@ -15,7 +15,7 @@ jobs:
       - name: Checkout project
         uses: actions/checkout@v6.0.2
         with:
-          token: ${{ github.actor == 'dependabot[bot]' && secrets.GITHUB_TOKEN || secrets.GIT_BOT_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           ref: main
 
       - name: set up JDK 17
