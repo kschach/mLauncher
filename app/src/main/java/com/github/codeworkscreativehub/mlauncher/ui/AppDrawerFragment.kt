@@ -694,6 +694,7 @@ class AppDrawerFragment : BaseFragment() {
         // 🔹 Observe apps
         viewModel.appList.observe(viewLifecycleOwner) { rawAppList ->
             if (flag == AppDrawerFlag.HiddenApps) return@observe
+            AppLogger.d("RecentAppsDebug", "observer fired: total=${rawAppList?.size} recent=${rawAppList?.count { it.category.name == "RECENT" }} sameAsAdapter=${rawAppList == appAdapter.appsList} displayedChild=${binding.menuView.displayedChild}")
             if (rawAppList == appAdapter.appsList || binding.menuView.displayedChild != 0) return@observe
 
             AppLogger.d("Apps", "Loaded ${rawAppList?.size ?: 0} raw apps")

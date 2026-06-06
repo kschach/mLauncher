@@ -554,11 +554,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val rawApps = mutableListOf<RawApp>()
 
         // 🔹 Recent apps
+        AppLogger.d("RecentAppsDebug", "recentAppsDisplayed=${prefs.recentAppsDisplayed} includeRecentApps=$includeRecentApps")
         if (prefs.recentAppsDisplayed && includeRecentApps) {
             runCatching {
-                AppUsageMonitor.createInstance(context)
-                    .getLastTenAppsUsed(context)
-                    .forEach { (pkg, name, activity) ->
+                val recents = AppUsageMonitor.createInstance(context).getLastTenAppsUsed(context)
+                AppLogger.d("RecentAppsDebug", "getLastTenAppsUsed returned ${recents.size} apps: ${recents.map { it.first }}")
+                recents.forEach { (pkg, name, activity) ->
                         val key = appKey(pkg, activity, 0)
                         if (seenAppKeys.add(key)) {
                             rawApps.add(
@@ -576,6 +577,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }.onFailure { t ->
                 AppLogger.e("AppListDebug", "Failed to add recent apps: ${t.message}", t)
             }
+            AppLogger.d("RecentAppsDebug", "RECENT items in rawApps: ${rawApps.count { it.category == AppCategory.RECENT }}")
         }
 
         // 🔹 Profile apps in parallel
